@@ -9,12 +9,21 @@ from skimage.feature import hog
 from skimage.color import rgb2gray
 from pathlib import Path
 
+# Lokasi file model relatif ke app.py
+BASE_DIR = Path(__file__).resolve().parent
+MODEL_PATH = BASE_DIR / "svm_model.pkl"
+SCALER_PATH = BASE_DIR / "scaler.pkl"
+
+
 # Load model dan scaler
-@st.cache_resource
+@st.cache_resource(show_spinner=False)
 def load_model():
-    with open('svm_model.pkl', 'rb') as f:
+    if not MODEL_PATH.exists() or not SCALER_PATH.exists():
+        raise FileNotFoundError("Model atau scaler tidak ditemukan")
+
+    with open(MODEL_PATH, 'rb') as f:
         model = pickle.load(f)
-    with open('scaler.pkl', 'rb') as f:
+    with open(SCALER_PATH, 'rb') as f:
         scaler = pickle.load(f)
     return model, scaler
 
@@ -22,11 +31,14 @@ def create_features(img):
     """Extract features dari gambar"""
     # Resize gambar using PIL directly
     img = img.resize((56, 56), Image.Resampling.LANCZOS)
-    img_arr = np.array(img)
     
-    # Handle grayscale images
-    if len(img_arr.shape) == 2:
-        img_arr = np.stack([img_arr] * 3, axis=-1)
+    # Convert to RGB if RGBA or grayscale
+    if img.mode == 'RGBA':
+        img = img.convert('RGB')
+    elif img.mode != 'RGB':
+        img = img.convert('RGB')
+    
+    img_arr = np.array(img)
     
     # Flatten three channel color image
     color_features = img_arr.flatten()
@@ -62,9 +74,9 @@ st.write("Upload gambar untuk memprediksi apakah itu kucing atau anjing")
 # Load model
 try:
     model, scaler = load_model()
-    st.success("Model loaded successfully!")
+    st.success(f"Model loaded: {MODEL_PATH.name} | Scaler: {SCALER_PATH.name}")
 except FileNotFoundError:
-    st.error("Model tidak ditemukan! Jalankan train_model.py terlebih dahulu.")
+    st.error("Model tidak ditemukan! Jalankan train_model.py atau sel simpan model di notebook.")
     st.stop()
 
 # File uploader
